@@ -30,6 +30,8 @@
     --ink-3: rgba(246, 239, 233, 0.5);
     --star: #ff4d1a;
     --mono: "JetBrains Mono", "IBM Plex Mono", ui-monospace, monospace;
+    --star-hit: 48px;
+    --star-svg: 12px;
   }
   * { box-sizing: border-box; }
   html, body {
@@ -40,8 +42,9 @@
     font-family: var(--mono);
     font-weight: 500;
     -webkit-font-smoothing: antialiased;
+    overflow: hidden;
+    overscroll-behavior: none;
   }
-  body { overflow: hidden; }
   .sr {
     position: absolute;
     width: 1px;
@@ -52,27 +55,56 @@
     clip: rect(0, 0, 0, 0);
     white-space: nowrap;
     border: 0;
+    pointer-events: none;
   }
-  .cover {
+  .viewport {
     position: fixed;
-    inset: 0;
+    top: 0;
+    left: 0;
     width: 100%;
     height: 100%;
-    object-fit: cover;
-    object-position: 46% 46%;
+    height: 100dvh;
+    overflow: hidden;
+    touch-action: none;
+    overscroll-behavior: none;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+    background: #102028;
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .viewport { cursor: grab; }
+    .viewport.is-panning,
+    .viewport.is-panning .star { cursor: grabbing; }
+  }
+  .stage {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 2800px;
+    height: 1867px;
+    transform-origin: 0 0;
+    visibility: hidden;
+  }
+  .stage.is-ready { visibility: visible; }
+  .mural {
+    display: block;
+    width: 100%;
+    height: 100%;
+    max-width: none;
+    object-fit: fill;
     user-select: none;
     -webkit-user-drag: none;
+    pointer-events: none;
   }
   .sky {
-    position: fixed;
+    position: absolute;
     inset: 0;
-    z-index: 2;
-    pointer-events: none;
   }
   .star {
     position: absolute;
-    width: 48px;
-    height: 48px;
+    width: var(--star-hit);
+    height: var(--star-hit);
     margin: 0;
     padding: 0;
     border: 0;
@@ -82,12 +114,14 @@
     place-items: center;
     transform: translate(-50%, -50%);
     cursor: pointer;
-    pointer-events: auto;
-    touch-action: manipulation;
+    touch-action: none;
     -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
   }
   .star svg {
     display: block;
+    width: var(--star-svg);
+    height: var(--star-svg);
     overflow: visible;
     animation: pulse 3.2s ease-in-out infinite;
     animation-delay: var(--d, 0s);
@@ -109,27 +143,6 @@
   .star:focus-visible {
     outline: 2px solid var(--star);
     outline-offset: 1px;
-  }
-  .ig {
-    position: fixed;
-    z-index: 3;
-    left: max(12px, env(safe-area-inset-left));
-    bottom: max(10px, env(safe-area-inset-bottom));
-    padding: 8px 4px;
-    font-family: var(--mono);
-    font-size: 11px;
-    font-weight: 500;
-    line-height: 1;
-    color: rgba(255, 255, 255, 0.92);
-    text-decoration: none;
-    text-shadow:
-      0 1px 2px rgba(0, 0, 0, 0.9),
-      0 0 8px rgba(0, 0, 0, 0.65);
-  }
-  .ig:hover { color: #fff; }
-  .ig:focus-visible {
-    outline: 2px solid var(--star);
-    outline-offset: 3px;
   }
   dialog {
     width: 100%;
@@ -155,6 +168,7 @@
       max(28px, env(safe-area-inset-top))
       22px
       max(28px, env(safe-area-inset-bottom));
+    touch-action: manipulation;
   }
   .inner {
     width: fit-content;
@@ -162,6 +176,9 @@
     max-height: 100%;
     overflow: auto;
     text-align: left;
+    -webkit-user-select: text;
+    user-select: text;
+    touch-action: pan-y;
   }
   .inner time {
     display: block;
@@ -210,9 +227,12 @@
 </head>
 <body>
 <h1 class="sr">cody larae</h1>
-<img class="cover" src="mural.jpg" width="2800" height="1867" alt="Venice Beach mural of a laughing boy in thick black glasses, painted on a dark utility box, with the word Never beside him." fetchpriority="high">
-<div id="sky" class="sky"></div>
-<a class="ig" href="https://instagram.com/cody_larae_irl" target="_blank" rel="noopener noreferrer">@cody_larae_irl</a>
+<div id="viewport" class="viewport">
+  <div id="stage" class="stage">
+    <img id="mural" class="mural" src="mural.jpg" width="2800" height="1867" alt="Venice Beach mural of a laughing boy in thick black glasses, painted on a dark utility box, with the word Never beside him." draggable="false" fetchpriority="high">
+    <div id="sky" class="sky"></div>
+  </div>
+</div>
 <dialog id="quote" aria-labelledby="q-text">
   <div class="sheet">
     <article class="inner">
@@ -225,16 +245,448 @@
 <script>
 (() => {
   const QUOTES = "https://jayroddi.dev/quote-of-the-day/quotes.json";
-  const MAX = 48;
+  const FACE_X = 0.46;
+  const FACE_Y = 0.44;
+  const OVERSCAN = 1.5;
+
+  const viewport = document.getElementById("viewport");
+  const stage = document.getElementById("stage");
+  const mural = document.getElementById("mural");
   const sky = document.getElementById("sky");
   const dialog = document.getElementById("quote");
   const qDate = document.getElementById("q-date");
   const qText = document.getElementById("q-text");
   const qBy = document.getElementById("q-by");
   const inner = dialog.querySelector(".inner");
-  let opener = null;
+  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const quoteOf = new WeakMap();
 
-  const STAR = '<svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true"><path fill="#FF4D1A" d="M12 1.15 14.1 9.9 22.85 12 14.1 14.1 12 22.85 9.9 14.1 1.15 12 9.9 9.9Z"/></svg>';
+  let imgW = 2800;
+  let imgH = 1867;
+  let scale = 1;
+  let x = 0;
+  let y = 0;
+  let pinnedToFace = true;
+  let lastVw = 0;
+  let lastVh = 0;
+  let signature = null;
+  let current = [];
+  let opener = null;
+  let suppressClick = false;
+  let blockDismissUntil = 0;
+  let keyboardNav = false;
+  let glide = 0;
+  let vx = 0;
+  let vy = 0;
+  let trackX = 0;
+  let trackY = 0;
+  let trackT = 0;
+  let lastTouchAt = 0;
+  let midnightTimer = 0;
+
+  const touches = new Map();
+  let mouse = null;
+  let pinch = null;
+  let gestureMoved = false;
+  let tapStar = null;
+
+  const STAR = '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#FF4D1A" d="M12 1.15 14.1 9.9 22.85 12 14.1 14.1 12 22.85 9.9 14.1 1.15 12 9.9 9.9Z"/></svg>';
+
+  function readImageSize() {
+    imgW = mural.naturalWidth || Number(mural.getAttribute("width")) || 2800;
+    imgH = mural.naturalHeight || Number(mural.getAttribute("height")) || 1867;
+    stage.style.width = imgW + "px";
+    stage.style.height = imgH + "px";
+  }
+
+  function fitViewport() {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    viewport.style.width = vv.width + "px";
+    viewport.style.height = vv.height + "px";
+    viewport.style.top = vv.offsetTop + "px";
+    viewport.style.left = vv.offsetLeft + "px";
+  }
+
+  function limits() {
+    const vw = viewport.clientWidth;
+    const vh = viewport.clientHeight;
+    const contain = Math.min(vw / imgW, vh / imgH);
+    const cover = Math.max(vw / imgW, vh / imgH);
+    const min = contain;
+    const max = Math.max(cover * 5, min * 4);
+    const initial = Math.min(max, Math.max(min, cover * OVERSCAN));
+    return { vw, vh, min, max, initial };
+  }
+
+  function clamp() {
+    const vw = viewport.clientWidth;
+    const vh = viewport.clientHeight;
+    const sw = imgW * scale;
+    const sh = imgH * scale;
+    if (sw <= vw + 0.5) x = (vw - sw) / 2;
+    else x = Math.min(0, Math.max(vw - sw, x));
+    if (sh <= vh + 0.5) y = (vh - sh) / 2;
+    else y = Math.min(0, Math.max(vh - sh, y));
+  }
+
+  function apply() {
+    stage.style.transform = "translate3d(" + x + "px," + y + "px,0) scale(" + scale + ")";
+  }
+
+  function syncStarSize() {
+    document.documentElement.style.setProperty("--star-hit", (48 / scale) + "px");
+    document.documentElement.style.setProperty("--star-svg", (12 / scale) + "px");
+  }
+
+  function frameFace() {
+    const box = limits();
+    if (!box.vw || !box.vh) return;
+    scale = box.initial;
+    x = box.vw / 2 - FACE_X * imgW * scale;
+    y = box.vh / 2 - FACE_Y * imgH * scale;
+    clamp();
+    syncStarSize();
+    apply();
+    lastVw = box.vw;
+    lastVh = box.vh;
+    stage.classList.add("is-ready");
+  }
+
+  function holdCenter(prevW, prevH) {
+    const box = limits();
+    const wx = (prevW / 2 - x) / scale;
+    const wy = (prevH / 2 - y) / scale;
+    scale = Math.min(box.max, Math.max(box.min, scale));
+    x = box.vw / 2 - wx * scale;
+    y = box.vh / 2 - wy * scale;
+    clamp();
+    apply();
+    lastVw = box.vw;
+    lastVh = box.vh;
+  }
+
+  function onResize() {
+    const prevW = lastVw;
+    const prevH = lastVh;
+    fitViewport();
+    if (viewport.clientWidth < 2 || viewport.clientHeight < 2) return;
+    if (pinnedToFace || !prevW) frameFace();
+    else holdCenter(prevW, prevH);
+  }
+
+  function zoomAt(clientX, clientY, next) {
+    const rect = viewport.getBoundingClientRect();
+    const cx = clientX - rect.left;
+    const cy = clientY - rect.top;
+    const box = limits();
+    next = Math.min(box.max, Math.max(box.min, next));
+    const wx = (cx - x) / scale;
+    const wy = (cy - y) / scale;
+    scale = next;
+    x = cx - wx * scale;
+    y = cy - wy * scale;
+    clamp();
+    apply();
+  }
+
+  function centerOnImage(ix, iy) {
+    const vw = viewport.clientWidth;
+    const vh = viewport.clientHeight;
+    x = vw / 2 - ix * scale;
+    y = vh / 2 - iy * scale;
+    pinnedToFace = false;
+    clamp();
+    apply();
+  }
+
+  function stopGlide() {
+    if (glide) cancelAnimationFrame(glide);
+    glide = 0;
+    vx = 0;
+    vy = 0;
+  }
+
+  function trackVelocity(px, py) {
+    const now = performance.now();
+    const dt = now - trackT;
+    if (dt > 0 && dt < 80) {
+      vx = vx * 0.45 + ((px - trackX) / dt) * 0.55;
+      vy = vy * 0.45 + ((py - trackY) / dt) * 0.55;
+    } else if (dt >= 80) {
+      vx = 0;
+      vy = 0;
+    }
+    trackX = px;
+    trackY = py;
+    trackT = now;
+  }
+
+  function startGlide() {
+    if (reduceMotion || Math.hypot(vx, vy) < 0.04) return;
+    let last = performance.now();
+    const step = (now) => {
+      const dt = Math.min(34, now - last);
+      last = now;
+      if (dt <= 0) {
+        glide = requestAnimationFrame(step);
+        return;
+      }
+      const px = x;
+      const py = y;
+      x += vx * dt;
+      y += vy * dt;
+      const decay = Math.pow(0.92, dt / 16);
+      vx *= decay;
+      vy *= decay;
+      clamp();
+      if (Math.abs(x - px) > 0.2 && Math.sign(x - px) !== Math.sign(vx)) vx = 0;
+      if (Math.abs(x - px) < 0.01) vx = 0;
+      if (Math.abs(y - py) < 0.01) vy = 0;
+      apply();
+      if (Math.hypot(vx, vy) < 0.012) {
+        glide = 0;
+        return;
+      }
+      glide = requestAnimationFrame(step);
+    };
+    glide = requestAnimationFrame(step);
+  }
+
+  function armClickSuppression() {
+    suppressClick = true;
+    setTimeout(() => { suppressClick = false; }, 500);
+  }
+
+  function pinchPoints() {
+    const pts = [...touches.values()];
+    const dx = pts[0].x - pts[1].x;
+    const dy = pts[0].y - pts[1].y;
+    return {
+      dist: Math.hypot(dx, dy) || 1,
+      x: (pts[0].x + pts[1].x) / 2,
+      y: (pts[0].y + pts[1].y) / 2,
+    };
+  }
+
+  function beginPinch() {
+    const m = pinchPoints();
+    pinch = { dist: m.dist, x: m.x, y: m.y };
+    gestureMoved = true;
+    tapStar = null;
+    pinnedToFace = false;
+  }
+
+  function movePinch() {
+    const m = pinchPoints();
+    const factor = m.dist / pinch.dist;
+    x += m.x - pinch.x;
+    y += m.y - pinch.y;
+    pinch = { dist: m.dist, x: m.x, y: m.y };
+    zoomAt(m.x, m.y, scale * factor);
+  }
+
+  function onTouchStart(e) {
+    if (dialog.open) return;
+    if (e.cancelable) e.preventDefault();
+    lastTouchAt = performance.now();
+    stopGlide();
+    for (const t of e.changedTouches) {
+      touches.set(t.identifier, { x: t.clientX, y: t.clientY });
+    }
+    if (touches.size === 1) {
+      const t = e.changedTouches[0];
+      const target = t.target;
+      gestureMoved = false;
+      tapStar = target && target.closest ? target.closest(".star") : null;
+      pinch = null;
+      vx = 0;
+      vy = 0;
+      trackX = t.clientX;
+      trackY = t.clientY;
+      trackT = performance.now();
+      mouse = { x: t.clientX, y: t.clientY, ox: x, oy: y, touch: true };
+    } else if (touches.size >= 2) {
+      mouse = null;
+      beginPinch();
+    }
+  }
+
+  function onTouchMove(e) {
+    if (!touches.size || dialog.open) return;
+    if (e.cancelable) e.preventDefault();
+    for (const t of e.changedTouches) {
+      if (touches.has(t.identifier)) touches.set(t.identifier, { x: t.clientX, y: t.clientY });
+    }
+    if (touches.size >= 2) {
+      if (!pinch) beginPinch();
+      movePinch();
+      viewport.classList.add("is-panning");
+      return;
+    }
+    if (!mouse || !mouse.touch) return;
+    const t = [...touches.values()][0];
+    const dx = t.x - mouse.x;
+    const dy = t.y - mouse.y;
+    if (!gestureMoved && dx * dx + dy * dy > 64) {
+      gestureMoved = true;
+      tapStar = null;
+      pinnedToFace = false;
+      viewport.classList.add("is-panning");
+    }
+    if (!gestureMoved) return;
+    x = mouse.ox + dx;
+    y = mouse.oy + dy;
+    trackVelocity(t.x, t.y);
+    clamp();
+    apply();
+  }
+
+  function onTouchEnd(e, cancelled) {
+    for (const t of e.changedTouches) touches.delete(t.identifier);
+    if (e.cancelable) e.preventDefault();
+    if (touches.size >= 2) {
+      beginPinch();
+      return;
+    }
+    if (touches.size === 1) {
+      const t = [...touches.values()][0];
+      mouse = { x: t.x, y: t.y, ox: x, oy: y, touch: true };
+      pinch = null;
+      gestureMoved = true;
+      tapStar = null;
+      vx = 0;
+      vy = 0;
+      return;
+    }
+    const moved = gestureMoved;
+    const star = tapStar;
+    mouse = null;
+    pinch = null;
+    tapStar = null;
+    gestureMoved = false;
+    viewport.classList.remove("is-panning");
+    armClickSuppression();
+    if (!cancelled && !moved && star && !dialog.open) openFrom(star);
+    else if (moved) startGlide();
+  }
+
+  viewport.addEventListener("touchstart", onTouchStart, { passive: false, capture: true });
+  viewport.addEventListener("touchmove", onTouchMove, { passive: false, capture: true });
+  viewport.addEventListener("touchend", (e) => onTouchEnd(e, false), { passive: false, capture: true });
+  viewport.addEventListener("touchcancel", (e) => onTouchEnd(e, true), { passive: false, capture: true });
+  document.addEventListener("touchmove", (e) => {
+    if (dialog.open) return;
+    if (e.cancelable) e.preventDefault();
+  }, { passive: false, capture: true });
+  ["gesturestart", "gesturechange", "gestureend"].forEach((type) => {
+    viewport.addEventListener(type, (e) => e.preventDefault(), { passive: false });
+  });
+
+  viewport.addEventListener("pointerdown", (e) => {
+    if (e.pointerType !== "mouse" || e.button !== 0 || dialog.open) return;
+    if (performance.now() - lastTouchAt < 700) return;
+    stopGlide();
+    const target = e.target;
+    mouse = {
+      id: e.pointerId,
+      x: e.clientX,
+      y: e.clientY,
+      ox: x,
+      oy: y,
+      touch: false,
+      moved: false,
+      star: target && target.closest ? target.closest(".star") : null,
+    };
+    vx = 0;
+    vy = 0;
+    trackX = e.clientX;
+    trackY = e.clientY;
+    trackT = performance.now();
+    viewport.setPointerCapture(e.pointerId);
+  });
+  viewport.addEventListener("pointermove", (e) => {
+    if (!mouse || mouse.touch || e.pointerId !== mouse.id) return;
+    const dx = e.clientX - mouse.x;
+    const dy = e.clientY - mouse.y;
+    if (!mouse.moved && dx * dx + dy * dy > 16) {
+      mouse.moved = true;
+      pinnedToFace = false;
+      viewport.classList.add("is-panning");
+    }
+    if (!mouse.moved) return;
+    e.preventDefault();
+    x = mouse.ox + dx;
+    y = mouse.oy + dy;
+    trackVelocity(e.clientX, e.clientY);
+    clamp();
+    apply();
+  });
+  function endMouse(e) {
+    if (!mouse || mouse.touch || e.pointerId !== mouse.id) return;
+    const moved = mouse.moved;
+    const star = mouse.star;
+    mouse = null;
+    viewport.classList.remove("is-panning");
+    armClickSuppression();
+    if (!moved && star) openFrom(star);
+    else if (moved) startGlide();
+  }
+  viewport.addEventListener("pointerup", endMouse);
+  viewport.addEventListener("pointercancel", endMouse);
+  viewport.addEventListener("wheel", (e) => {
+    if (dialog.open) return;
+    e.preventDefault();
+    stopGlide();
+    pinnedToFace = false;
+    let dx = e.deltaX;
+    let dy = e.deltaY;
+    if (e.deltaMode === 1) { dx *= 16; dy *= 16; }
+    else if (e.deltaMode === 2) {
+      dx *= viewport.clientWidth;
+      dy *= viewport.clientHeight;
+    }
+    if (e.ctrlKey) zoomAt(e.clientX, e.clientY, scale * Math.exp(-dy * 0.002));
+    else {
+      x -= dx;
+      y -= dy;
+      clamp();
+      apply();
+    }
+  }, { passive: false });
+  viewport.addEventListener("dragstart", (e) => e.preventDefault());
+
+  viewport.addEventListener("click", (e) => {
+    const btn = e.target.closest(".star");
+    if (!btn) return;
+    if (suppressClick) {
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
+    openFrom(btn);
+  });
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Tab") keyboardNav = true;
+    if (dialog.open) return;
+    let dx = 0;
+    let dy = 0;
+    const step = e.shiftKey ? 140 : 72;
+    if (e.key === "ArrowLeft") dx = step;
+    else if (e.key === "ArrowRight") dx = -step;
+    else if (e.key === "ArrowUp") dy = step;
+    else if (e.key === "ArrowDown") dy = -step;
+    else return;
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    e.preventDefault();
+    stopGlide();
+    pinnedToFace = false;
+    x += dx;
+    y += dy;
+    clamp();
+    apply();
+  });
 
   function chicagoToday() {
     const parts = new Intl.DateTimeFormat("en-US", {
@@ -244,17 +696,17 @@
       day: "2-digit",
     }).formatToParts(new Date());
     const get = (type) => parts.find((p) => p.type === type).value;
-    return `${get("year")}-${get("month")}-${get("day")}`;
+    return get("year") + "-" + get("month") + "-" + get("day");
   }
 
   function spokenDate(iso) {
-    const [y, m, d] = iso.split("-").map(Number);
+    const parts = iso.split("-").map(Number);
     return new Intl.DateTimeFormat("en-US", {
       month: "long",
       day: "numeric",
       year: "numeric",
       timeZone: "UTC",
-    }).format(new Date(Date.UTC(y, m - 1, d)));
+    }).format(new Date(Date.UTC(parts[0], parts[1] - 1, parts[2])));
   }
 
   function usable(rows) {
@@ -267,45 +719,38 @@
         author: String(e.author || "").trim().replace(/^\s*[-–—]\s*/, ""),
       }))
       .filter((e) => e.text && e.author)
-      .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0))
-      .slice(0, MAX);
+      .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
   }
 
-  function scatter(n) {
-    const w = window.innerWidth;
-    const h = window.innerHeight;
-    const margin = 32;
-    const reserveW = 176;
-    const reserveH = 48;
-    const pts = [];
-    let min = Math.max(56, Math.min(88, Math.hypot(w, h) / Math.sqrt(n + 4)));
-    for (let round = 0; round < 7 && pts.length < n; round++) {
-      let tries = 0;
-      while (pts.length < n && tries < 5000) {
-        tries++;
-        const x = margin + Math.random() * Math.max(1, w - margin * 2);
-        const y = margin + Math.random() * Math.max(1, h - margin * 2);
-        if (x < reserveW && y > h - reserveH) continue;
-        let ok = true;
-        for (const p of pts) {
-          const dx = p.x - x;
-          const dy = p.y - y;
-          if (dx * dx + dy * dy < min * min) { ok = false; break; }
-        }
-        if (ok) pts.push({ x, y });
-      }
-      min *= 0.72;
-    }
-    while (pts.length < n) {
-      pts.push({
-        x: margin + Math.random() * Math.max(1, w - margin * 2),
-        y: margin + Math.random() * Math.max(1, h - margin * 2),
-      });
-    }
-    return pts.map((p) => ({ l: (p.x / w) * 100, t: (p.y / h) * 100 }));
+  function quoteKey(q) {
+    return q.date + "\0" + q.text;
   }
 
+  function spotForIndex(i) {
+    const g = 1.324717957244746;
+    const u = (0.5 + (1 / g) * i) % 1;
+    const v = (0.5 + (1 / (g * g)) * i) % 1;
+    const edge = 0.04;
+    return {
+      l: (edge + u * (1 - edge * 2)) * 100,
+      t: (edge + v * (1 - edge * 2)) * 100,
+    };
+  }
+
+  function spotsFor(list) {
+    const ordered = [...list].sort((a, b) => (quoteKey(a) < quoteKey(b) ? -1 : 1));
+    const map = new Map();
+    ordered.forEach((q, i) => map.set(quoteKey(q), spotForIndex(i)));
+    return list.map((q) => map.get(quoteKey(q)));
+  }
+
+  let lastOpen = 0;
   function openQuote(q, btn) {
+    const now = performance.now();
+    if (dialog.open && now - lastOpen < 450) return;
+    lastOpen = now;
+    blockDismissUntil = now + 550;
+    stopGlide();
     qDate.dateTime = q.date;
     qDate.textContent = q.date.replaceAll("-", ".");
     qText.textContent = q.text;
@@ -314,8 +759,13 @@
     if (!dialog.open) dialog.showModal();
   }
 
+  function openFrom(btn) {
+    const q = quoteOf.get(btn);
+    if (q) openQuote(q, btn);
+  }
+
   function paint(list) {
-    const spots = scatter(list.length);
+    const spots = spotsFor(list);
     const frag = document.createDocumentFragment();
     list.forEach((q, i) => {
       const btn = document.createElement("button");
@@ -323,31 +773,96 @@
       btn.className = "star";
       btn.style.left = spots[i].l + "%";
       btn.style.top = spots[i].t + "%";
-      btn.style.setProperty("--d", (Math.random() * 3.2).toFixed(2) + "s");
+      btn.style.setProperty("--d", ((i % 8) * 0.4).toFixed(2) + "s");
       btn.setAttribute("aria-haspopup", "dialog");
       btn.setAttribute("aria-label", "quote for " + spokenDate(q.date));
       btn.innerHTML = STAR;
-      btn.addEventListener("click", () => openQuote(q, btn));
+      quoteOf.set(btn, q);
+      btn.addEventListener("focus", () => {
+        if (!keyboardNav) return;
+        centerOnImage((spots[i].l / 100) * imgW, (spots[i].t / 100) * imgH);
+      });
       frag.appendChild(btn);
     });
     sky.replaceChildren(frag);
   }
 
+  function applyList(rows) {
+    const list = usable(rows);
+    const sig = list.map((q) => q.date + "\0" + q.text + "\0" + q.author).join("\n");
+    if (sig === signature) return;
+    signature = sig;
+    current = list;
+    paint(list);
+  }
+
+  function load() {
+    fetch(QUOTES, { cache: "no-cache" })
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((rows) => {
+        if (Array.isArray(rows)) applyList(rows);
+      })
+      .catch(() => {});
+  }
+
+  function msUntilChicagoMidnight() {
+    const parts = new Intl.DateTimeFormat("en-US", {
+      timeZone: "America/Chicago",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hourCycle: "h23",
+    }).formatToParts(new Date());
+    const get = (type) => Number(parts.find((p) => p.type === type).value);
+    let hour = get("hour");
+    if (hour === 24) hour = 0;
+    const elapsed = ((hour * 60 + get("minute")) * 60 + get("second")) * 1000;
+    return (24 * 60 * 60 * 1000) - elapsed + 1500;
+  }
+
+  function scheduleMidnight() {
+    clearTimeout(midnightTimer);
+    midnightTimer = setTimeout(() => {
+      load();
+      scheduleMidnight();
+    }, Math.max(5000, msUntilChicagoMidnight()));
+  }
+
   dialog.addEventListener("click", (e) => {
+    if (performance.now() < blockDismissUntil) return;
     if (!inner.contains(e.target)) dialog.close();
   });
   dialog.addEventListener("close", () => {
-    if (opener) opener.focus();
+    if (opener) opener.focus({ preventScroll: true });
+  });
+  dialog.addEventListener("cancel", (e) => {
+    e.preventDefault();
+    dialog.close();
   });
 
-  fetch(QUOTES, { cache: "no-cache" })
-    .then((r) => (r.ok ? r.json() : Promise.reject()))
-    .then((rows) => {
-      if (!Array.isArray(rows)) return;
-      const list = usable(rows);
-      if (list.length) paint(list);
-    })
-    .catch(() => {});
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") load();
+  });
+  window.addEventListener("pageshow", load);
+  window.addEventListener("resize", onResize);
+  if (window.visualViewport) {
+    visualViewport.addEventListener("resize", onResize);
+    visualViewport.addEventListener("scroll", onResize);
+  }
+  mural.addEventListener("load", () => {
+    const w = mural.naturalWidth;
+    const h = mural.naturalHeight;
+    if (!w || !h || (w === imgW && h === imgH)) return;
+    readImageSize();
+    if (pinnedToFace) frameFace();
+    else onResize();
+    if (current.length) paint(current);
+  });
+
+  readImageSize();
+  onResize();
+  load();
+  scheduleMidnight();
 })();
 </script>
 </body>
