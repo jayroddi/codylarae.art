@@ -28,7 +28,11 @@
     --ink: #f6efe9;
     --ink-2: rgba(246, 239, 233, 0.72);
     --ink-3: rgba(246, 239, 233, 0.5);
-    --star: #ff4d1a;
+    --orange: #ff4d1a;
+    --gold: #ffd700;
+    --gold-deep: #c9a227;
+    --gold-bright: #ffe566;
+    --teal: #1aadb3;
     --mono: "JetBrains Mono", "IBM Plex Mono", ui-monospace, monospace;
     --star-hit: 48px;
     --star-svg: 12px;
@@ -123,26 +127,101 @@
     width: var(--star-svg);
     height: var(--star-svg);
     overflow: visible;
-    animation: pulse 3.2s ease-in-out infinite;
-    animation-delay: var(--d, 0s);
     filter:
-      drop-shadow(0 0 4px rgba(255, 77, 26, 0.8))
+      drop-shadow(0 0 3px rgba(255, 215, 0, 0.45))
       drop-shadow(0 1px 1px rgba(0, 0, 0, 0.4));
   }
-  @keyframes pulse {
-    0%, 100% { opacity: 0.72; transform: scale(0.86); }
-    50% { opacity: 1; transform: scale(1); }
+  .star svg path { fill: var(--gold); }
+  .star.is-read {
+    z-index: 1;
+  }
+  .star.is-read svg {
+    filter:
+      drop-shadow(0 0 3px rgba(26, 173, 179, 0.7))
+      drop-shadow(0 1px 1px rgba(0, 0, 0, 0.4));
+  }
+  .star.is-read svg path { fill: var(--teal); }
+  .star.is-today {
+    z-index: 2;
+    width: calc(var(--star-hit) * 1.75);
+    height: calc(var(--star-hit) * 1.75);
+  }
+  .star.is-today svg {
+    width: calc(var(--star-svg) * 2.2);
+    height: calc(var(--star-svg) * 2.2);
+    animation: today-blink 1.05s ease-in-out infinite;
+    filter:
+      drop-shadow(0 0 6px rgba(255, 229, 102, 0.95))
+      drop-shadow(0 0 16px rgba(255, 215, 0, 0.9))
+      drop-shadow(0 1px 1px rgba(0, 0, 0, 0.45));
+  }
+  .star.is-today svg path { fill: var(--gold-bright); }
+  @keyframes today-blink {
+    0%, 100% { opacity: 1; transform: scale(1.14); }
+    46% { opacity: 1; transform: scale(1.14); }
+    54%, 72% { opacity: 0.2; transform: scale(0.72); }
   }
   .star:hover svg,
-  .star:focus-visible svg {
+  html.keyboard .star:focus-visible svg {
     opacity: 1;
-    transform: scale(1.2);
+    transform: scale(1.18);
     animation: none;
   }
-  .star:focus { outline: none; }
+  .star:hover svg path,
+  html.keyboard .star:focus-visible svg path { fill: var(--gold-bright); }
+  .star.is-read:hover svg path,
+  html.keyboard .star.is-read:focus-visible svg path { fill: var(--teal); }
+  .star:focus,
   .star:focus-visible {
-    outline: 2px solid var(--star);
-    outline-offset: 1px;
+    outline: none;
+    box-shadow: none;
+  }
+  html.keyboard .star:focus-visible {
+    outline: 2px solid var(--gold-bright);
+    outline-offset: 3px;
+  }
+  .guide {
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    pointer-events: none;
+    overflow: hidden;
+  }
+  .guide.is-gone { opacity: 0; transition: opacity 640ms ease; }
+  .guide-dot {
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--gold-bright);
+    transform: translate(-50%, -50%);
+    animation: trail 1.7s ease-in-out infinite;
+    animation-delay: calc(var(--n) * 0.2s);
+  }
+  .guide-glow {
+    position: absolute;
+    width: 150px;
+    height: 150px;
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    background: radial-gradient(circle, rgba(255, 215, 0, 0.34), rgba(255, 215, 0, 0) 68%);
+    animation: trail-glow 1.7s ease-in-out infinite;
+  }
+  @keyframes trail {
+    0%, 100% {
+      opacity: 0.12;
+      transform: translate(-50%, -50%) scale(0.65);
+      box-shadow: 0 0 6px 1px rgba(201, 162, 39, 0.25);
+    }
+    50% {
+      opacity: 0.95;
+      transform: translate(-50%, -50%) scale(1.45);
+      box-shadow: 0 0 14px 4px rgba(255, 215, 0, 0.55);
+    }
+  }
+  @keyframes trail-glow {
+    0%, 100% { opacity: 0.28; }
+    50% { opacity: 0.85; }
   }
   dialog {
     width: 100%;
@@ -208,13 +287,21 @@
     font-size: 15px;
     font-weight: 500;
     line-height: 1.5;
-    color: var(--star);
+    color: var(--orange);
     text-align: right;
     text-transform: lowercase;
   }
-  ::selection { background: var(--star); color: #1a0c06; }
+  ::selection { background: var(--orange); color: #1a0c06; }
   @media (prefers-reduced-motion: reduce) {
-    .star svg { animation: none; opacity: 0.95; transform: none; }
+    .star svg,
+    .guide-dot,
+    .guide-glow { animation: none; }
+    .star.is-today svg { opacity: 1; transform: none; }
+    .guide-dot {
+      opacity: 0.8;
+      box-shadow: 0 0 10px 2px rgba(255, 215, 0, 0.45);
+    }
+    .guide-glow { opacity: 0.7; }
   }
   @media (prefers-reduced-motion: no-preference) {
     dialog[open] .inner { animation: rise 180ms ease; }
@@ -232,6 +319,7 @@
     <img id="mural" class="mural" src="mural.jpg" width="2800" height="1867" alt="Venice Beach mural of a laughing boy in thick black glasses, painted on a dark utility box, with the word Never beside him." draggable="false" fetchpriority="high">
     <div id="sky" class="sky"></div>
   </div>
+  <div id="guide" class="guide" hidden aria-hidden="true"></div>
 </div>
 <dialog id="quote" aria-labelledby="q-text">
   <div class="sheet">
@@ -273,6 +361,11 @@
   let current = [];
   let opener = null;
   let suppressClick = false;
+  let suppressStarFocus = false;
+  let todayBtn = null;
+  let guideDone = false;
+  const READ_KEY = "codylarae.read";
+  let readKeys = new Set();
   let blockDismissUntil = 0;
   let keyboardNav = false;
   let glide = 0;
@@ -290,7 +383,108 @@
   let gestureMoved = false;
   let tapStar = null;
 
-  const STAR = '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#FF4D1A" d="M12 1.15 14.1 9.9 22.85 12 14.1 14.1 12 22.85 9.9 14.1 1.15 12 9.9 9.9Z"/></svg>';
+  const STAR = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 1.15 14.1 9.9 22.85 12 14.1 14.1 12 22.85 9.9 14.1 1.15 12 9.9 9.9Z"/></svg>';
+  const guide = document.getElementById("guide");
+  const guideGlow = document.createElement("div");
+  guideGlow.className = "guide-glow";
+  const guideDots = [0, 1, 2, 3].map((i) => {
+    const dot = document.createElement("span");
+    dot.className = "guide-dot";
+    dot.style.setProperty("--n", String(i));
+    return dot;
+  });
+  guide.append(guideGlow, ...guideDots);
+
+  function loadRead() {
+    try {
+      const raw = localStorage.getItem(READ_KEY);
+      const list = raw ? JSON.parse(raw) : [];
+      readKeys = new Set(Array.isArray(list) ? list.filter((k) => typeof k === "string") : []);
+    } catch {
+      readKeys = new Set();
+    }
+  }
+
+  function saveRead() {
+    try { localStorage.setItem(READ_KEY, JSON.stringify([...readKeys])); } catch {}
+  }
+
+  function markRead(q, btn) {
+    const key = quoteKey(q);
+    if (!readKeys.has(key)) {
+      readKeys.add(key);
+      saveRead();
+    }
+    btn.classList.add("is-read");
+    btn.classList.remove("is-today");
+    if (todayBtn === btn) todayBtn = null;
+    dismissGuide();
+  }
+
+  function starPoint(btn) {
+    return {
+      x: x + (parseFloat(btn.style.left) / 100) * imgW * scale,
+      y: y + (parseFloat(btn.style.top) / 100) * imgH * scale,
+    };
+  }
+
+  function dismissGuide() {
+    if (guideDone) return;
+    guideDone = true;
+    guide.classList.add("is-gone");
+    setTimeout(() => { guide.hidden = true; }, 680);
+  }
+
+  function updateGuide() {
+    if (guideDone || !todayBtn) return;
+    const vw = viewport.clientWidth;
+    const vh = viewport.clientHeight;
+    if (vw < 2 || vh < 2) return;
+    const p = starPoint(todayBtn);
+    const pad = 36;
+    if (p.x >= pad && p.y >= pad && p.x <= vw - pad && p.y <= vh - pad) {
+      dismissGuide();
+      return;
+    }
+    const cx = vw / 2;
+    const cy = vh / 2;
+    const dx = p.x - cx;
+    const dy = p.y - cy;
+    const len = Math.hypot(dx, dy) || 1;
+    const ux = dx / len;
+    const uy = dy / len;
+    let tHit = Infinity;
+    if (ux > 1e-4) tHit = Math.min(tHit, (vw - 20 - cx) / ux);
+    else if (ux < -1e-4) tHit = Math.min(tHit, (20 - cx) / ux);
+    if (uy > 1e-4) tHit = Math.min(tHit, (vh - 20 - cy) / uy);
+    else if (uy < -1e-4) tHit = Math.min(tHit, (20 - cy) / uy);
+    if (!Number.isFinite(tHit) || tHit < 8) tHit = Math.min(vw, vh) * 0.42;
+    [0.52, 0.68, 0.82, 0.95].forEach((frac, i) => {
+      const t = tHit * frac;
+      guideDots[i].style.left = (cx + ux * t) + "px";
+      guideDots[i].style.top = (cy + uy * t) + "px";
+    });
+    guideGlow.style.left = (cx + ux * tHit) + "px";
+    guideGlow.style.top = (cy + uy * tHit) + "px";
+    guide.hidden = false;
+    guide.classList.remove("is-gone");
+  }
+
+  function releaseStarFocus() {
+    suppressStarFocus = true;
+    const blurStar = () => {
+      const active = document.activeElement;
+      const star = active && active.closest ? active.closest(".star") : null;
+      if (star) star.blur();
+    };
+    blurStar();
+    requestAnimationFrame(blurStar);
+    setTimeout(blurStar, 30);
+    setTimeout(() => {
+      blurStar();
+      suppressStarFocus = false;
+    }, 180);
+  }
 
   function readImageSize() {
     imgW = mural.naturalWidth || Number(mural.getAttribute("width")) || 2800;
@@ -332,6 +526,7 @@
 
   function apply() {
     stage.style.transform = "translate3d(" + x + "px," + y + "px,0) scale(" + scale + ")";
+    updateGuide();
   }
 
   function syncStarSize() {
@@ -489,6 +684,8 @@
   function onTouchStart(e) {
     if (dialog.open) return;
     if (e.cancelable) e.preventDefault();
+    keyboardNav = false;
+    document.documentElement.classList.remove("keyboard");
     lastTouchAt = performance.now();
     stopGlide();
     for (const t of e.changedTouches) {
@@ -586,6 +783,8 @@
   viewport.addEventListener("pointerdown", (e) => {
     if (e.pointerType !== "mouse" || e.button !== 0 || dialog.open) return;
     if (performance.now() - lastTouchAt < 700) return;
+    keyboardNav = false;
+    document.documentElement.classList.remove("keyboard");
     stopGlide();
     const target = e.target;
     mouse = {
@@ -668,7 +867,10 @@
   });
 
   document.addEventListener("keydown", (e) => {
-    if (e.key === "Tab") keyboardNav = true;
+    if (e.key === "Tab") {
+      keyboardNav = true;
+      document.documentElement.classList.add("keyboard");
+    }
     if (dialog.open) return;
     let dx = 0;
     let dy = 0;
@@ -756,6 +958,7 @@
     qText.textContent = q.text;
     qBy.textContent = q.author;
     opener = btn;
+    markRead(q, btn);
     if (!dialog.open) dialog.showModal();
   }
 
@@ -767,24 +970,34 @@
   function paint(list) {
     const spots = spotsFor(list);
     const frag = document.createDocumentFragment();
+    const day = chicagoToday();
+    let nextToday = null;
     list.forEach((q, i) => {
       const btn = document.createElement("button");
       btn.type = "button";
       btn.className = "star";
+      const key = quoteKey(q);
+      const read = readKeys.has(key);
+      const today = q.date === day && !read;
+      if (read) btn.classList.add("is-read");
+      else if (today) btn.classList.add("is-today");
       btn.style.left = spots[i].l + "%";
       btn.style.top = spots[i].t + "%";
-      btn.style.setProperty("--d", ((i % 8) * 0.4).toFixed(2) + "s");
       btn.setAttribute("aria-haspopup", "dialog");
-      btn.setAttribute("aria-label", "quote for " + spokenDate(q.date));
+      btn.setAttribute("aria-label", (today ? "today's quote, " : "quote for ") + spokenDate(q.date));
       btn.innerHTML = STAR;
       quoteOf.set(btn, q);
+      if (today && !nextToday) nextToday = btn;
       btn.addEventListener("focus", () => {
-        if (!keyboardNav) return;
+        if (!keyboardNav || suppressStarFocus) return;
         centerOnImage((spots[i].l / 100) * imgW, (spots[i].t / 100) * imgH);
       });
       frag.appendChild(btn);
     });
     sky.replaceChildren(frag);
+    todayBtn = nextToday;
+    if (!todayBtn) guide.hidden = true;
+    else updateGuide();
   }
 
   function applyList(rows) {
@@ -830,14 +1043,20 @@
 
   dialog.addEventListener("click", (e) => {
     if (performance.now() < blockDismissUntil) return;
-    if (!inner.contains(e.target)) dialog.close();
+    if (!inner.contains(e.target)) {
+      suppressStarFocus = true;
+      dialog.close();
+      releaseStarFocus();
+    }
   });
   dialog.addEventListener("close", () => {
-    if (opener) opener.focus({ preventScroll: true });
+    releaseStarFocus();
   });
   dialog.addEventListener("cancel", (e) => {
     e.preventDefault();
+    suppressStarFocus = true;
     dialog.close();
+    releaseStarFocus();
   });
 
   document.addEventListener("visibilitychange", () => {
@@ -859,6 +1078,7 @@
     if (current.length) paint(current);
   });
 
+  loadRead();
   readImageSize();
   onResize();
   load();
