@@ -1,0 +1,61 @@
+name: pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# The cloud agent token cannot administer Pages. The workflow token can
+# request pages:write, which is enough to publish main / and set the domain.
+permissions:
+  contents: read
+  pages: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Publish from main and set codylarae.art
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const log = (msg) => core.info(msg);
+            let site;
+            try {
+              site = await github.request("GET /repos/{owner}/{repo}/pages", { owner, repo });
+              log("Pages already on: " + site.data.html_url);
+            } catch (error) {
+              if (error.status !== 404) throw error;
+              site = await github.request("POST /repos/{owner}/{repo}/pages", {
+                owner,
+                repo,
+                build_type: "legacy",
+                source: { branch: "main", path: "/" },
+              });
+              log("Created Pages site from main /");
+            }
+            const domain = await github.request("PUT /repos/{owner}/{repo}/pages", {
+              owner,
+              repo,
+              cname: "codylarae.art",
+            });
+            log("Custom domain: " + (domain.data.cname || "unset"));
+            try {
+              const https = await github.request("PUT /repos/{owner}/{repo}/pages", {
+                owner,
+                repo,
+                https_enforced: true,
+              });
+              log("HTTPS enforced: " + https.data.https_enforced);
+            } catch (error) {
+              core.warning("HTTPS not enforceable yet: " + (error.response?.data?.message || error.message));
+            }
+            const after = await github.request("GET /repos/{owner}/{repo}/pages", { owner, repo });
+            log(JSON.stringify({
+              url: after.data.html_url,
+              status: after.data.status,
+              cname: after.data.cname,
+              https_enforced: after.data.https_enforced,
+              source: after.data.source,
+            }));
