@@ -5,57 +5,59 @@ on:
     branches: [main]
   workflow_dispatch:
 
-# The cloud agent token cannot administer Pages. The workflow token can
-# request pages:write, which is enough to publish main / and set the domain.
 permissions:
   contents: read
   pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
 
 jobs:
-  publish:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
-      - name: Publish from main and set codylarae.art
-        uses: actions/github-script@v7
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Assemble site
+        run: |
+          mkdir -p _site
+          cp index.html mural.jpg favicon.ico favicon-32.png apple-touch-icon.png CNAME .nojekyll _site/
+      - name: Setup Pages
+        uses: actions/configure-pages@v6
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: _site
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5
+      - name: Set custom domain
+        uses: actions/github-script@v9
         with:
           script: |
             const { owner, repo } = context.repo;
-            const log = (msg) => core.info(msg);
-            let site;
             try {
-              site = await github.request("GET /repos/{owner}/{repo}/pages", { owner, repo });
-              log("Pages already on: " + site.data.html_url);
-            } catch (error) {
-              if (error.status !== 404) throw error;
-              site = await github.request("POST /repos/{owner}/{repo}/pages", {
+              const domain = await github.request("PUT /repos/{owner}/{repo}/pages", {
                 owner,
                 repo,
-                build_type: "legacy",
-                source: { branch: "main", path: "/" },
+                cname: "codylarae.art",
               });
-              log("Created Pages site from main /");
+              core.info("cname=" + domain.data.cname + " https_enforced=" + domain.data.https_enforced);
+            } catch (error) {
+              core.warning("Could not set custom domain: " + (error.response?.data?.message || error.message));
             }
-            const domain = await github.request("PUT /repos/{owner}/{repo}/pages", {
-              owner,
-              repo,
-              cname: "codylarae.art",
-            });
-            log("Custom domain: " + (domain.data.cname || "unset"));
             try {
               const https = await github.request("PUT /repos/{owner}/{repo}/pages", {
                 owner,
                 repo,
                 https_enforced: true,
               });
-              log("HTTPS enforced: " + https.data.https_enforced);
+              core.info("https_enforced=" + https.data.https_enforced);
             } catch (error) {
               core.warning("HTTPS not enforceable yet: " + (error.response?.data?.message || error.message));
             }
-            const after = await github.request("GET /repos/{owner}/{repo}/pages", { owner, repo });
-            log(JSON.stringify({
-              url: after.data.html_url,
-              status: after.data.status,
-              cname: after.data.cname,
-              https_enforced: after.data.https_enforced,
-              source: after.data.source,
-            }));
