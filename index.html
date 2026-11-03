@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="referrer" content="strict-origin-when-cross-origin">
 <meta name="theme-color" content="#102028">
 <meta name="color-scheme" content="dark">
 <meta name="description" content="a venice beach mural.">
@@ -22,7 +23,7 @@
 <meta name="twitter:image" content="https://codylarae.art/mural.jpg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
 <style>
   :root {
     --ink: #f6efe9;
@@ -239,6 +240,134 @@
     0%, 100% { opacity: 0.28; }
     50% { opacity: 0.85; }
   }
+  .forehead {
+    position: absolute;
+    z-index: 4;
+    overflow: hidden;
+    border-radius: 2px;
+    background: #000;
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.45);
+    visibility: hidden;
+    cursor: auto;
+  }
+  .forehead.is-placed:not(.is-away) { visibility: visible; }
+  .forehead iframe {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    border: 0;
+    display: block;
+  }
+  .squint {
+    position: absolute;
+    z-index: 5;
+    width: 0;
+    height: 0;
+    transform-origin: 0 0;
+    visibility: hidden;
+    pointer-events: none;
+  }
+  .squint.is-placed:not(.is-away) { visibility: visible; }
+  .say {
+    position: absolute;
+    left: 0;
+    top: 18px;
+    transform: translate(-50%, 0);
+    margin: 0;
+    padding: 11px 20px 13px;
+    border: 4px solid #16120e;
+    border-radius: 999px;
+    background: #fffdf6;
+    color: #16120e;
+    font-family: "Fredoka", "Arial Rounded MT Bold", "Trebuchet MS", Verdana, sans-serif;
+    font-size: 36px;
+    font-weight: 600;
+    line-height: 1;
+    letter-spacing: 0.01em;
+    white-space: nowrap;
+    cursor: pointer;
+    pointer-events: auto;
+    -webkit-tap-highlight-color: transparent;
+    box-shadow: 0 2px 0 rgba(0, 0, 0, 0.28);
+  }
+  .say-tail {
+    position: absolute;
+    left: 50%;
+    top: -20px;
+    width: 34px;
+    height: 26px;
+    transform: translateX(-50%);
+    pointer-events: none;
+    overflow: visible;
+  }
+  .say::before {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: -2px;
+    width: 22px;
+    height: 9px;
+    transform: translateX(-50%);
+    background: #fffdf6;
+    pointer-events: none;
+  }
+  .say:active { background: #fff3c4; }
+  .say:active::before { background: #fff3c4; }
+  .squint.is-on .say {
+    visibility: hidden;
+    pointer-events: none;
+  }
+  .mini {
+    position: absolute;
+    left: 28px;
+    top: 16px;
+    width: 70px;
+    height: 70px;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    place-items: center;
+    border: 4px solid #16120e;
+    border-radius: 50%;
+    background: #fffdf6;
+    color: #16120e;
+    cursor: pointer;
+    visibility: hidden;
+    pointer-events: none;
+    -webkit-tap-highlight-color: transparent;
+    box-shadow: 0 2px 0 rgba(0, 0, 0, 0.28);
+  }
+  .squint.is-on .mini {
+    visibility: visible;
+    pointer-events: auto;
+  }
+  .mini svg { width: 30px; height: 30px; display: block; }
+  .mini .icon-play { display: none; }
+  .mini.is-paused .icon-pause { display: none; }
+  .mini.is-paused .icon-play { display: block; }
+  .mini:active { background: #fff3c4; }
+  html.keyboard .say:focus-visible,
+  html.keyboard .mini:focus-visible {
+    outline: 3px solid var(--gold-bright);
+    outline-offset: 4px;
+  }
+  .spotify-host {
+    position: fixed;
+    left: 0;
+    bottom: 0;
+    width: 300px;
+    height: 152px;
+    overflow: hidden;
+    pointer-events: none;
+    opacity: 0;
+    transform: translateY(110%);
+  }
+  .spotify-host iframe {
+    width: 300px;
+    height: 152px;
+    border: 0;
+  }
   dialog {
     width: 100%;
     height: 100%;
@@ -336,8 +465,25 @@
     <img id="mural" class="mural" src="mural.jpg" width="2800" height="1867" alt="Venice Beach mural of a laughing boy in thick black glasses, painted on a dark utility box, with the word Never beside him." draggable="false" fetchpriority="high">
     <div id="sky" class="sky"></div>
   </div>
+  <div id="forehead" class="forehead">
+    <iframe
+      title="Key &amp; Peele - School Bully"
+      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+      referrerpolicy="strict-origin-when-cross-origin"
+      allowfullscreen></iframe>
+  </div>
+  <div id="squint" class="squint">
+    <button id="say" class="say" type="button"><svg class="say-tail" viewBox="0 0 34 26" aria-hidden="true"><path d="M17 1.6 31.4 24.2 H2.6 Z" fill="#fffdf6" stroke="#16120e" stroke-width="3.6" stroke-linejoin="round"/></svg>tap to hear my song</button>
+    <button id="mini" class="mini" type="button" aria-label="pause song">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path class="icon-pause" fill="currentColor" d="M6.5 4.5h3.4v15H6.5zM14.1 4.5h3.4v15h-3.4z"/>
+        <path class="icon-play" fill="currentColor" d="M8 4.8v14.4l11.2-7.2z"/>
+      </svg>
+    </button>
+  </div>
   <div id="guide" class="guide" hidden aria-hidden="true"></div>
 </div>
+<div class="spotify-host" aria-hidden="true"><div id="spotify"></div></div>
 <dialog id="quote" aria-labelledby="q-text">
   <div class="sheet">
     <article class="inner">
@@ -353,6 +499,18 @@
   const FACE_X = 0.46;
   const FACE_Y = 0.44;
   const OVERSCAN = 1.5;
+  const MOUTH_X = 1345 / 2800;
+  const MOUTH_Y = 1136 / 1867;
+  const FOREHEAD = { x: 1115 / 2800, y: 559 / 1867, w: 320 / 2800, h: 172 / 1867 };
+  const TRACK_URI = "spotify:track:3uC4r2daXertBxxc8BpbbN";
+  const ytParams = new URLSearchParams({
+    playsinline: "1",
+    rel: "0",
+    modestbranding: "1",
+    iv_load_policy: "3",
+  });
+  if (location.protocol === "https:") ytParams.set("origin", location.origin);
+  const FOREHEAD_SRC = "https://www.youtube-nocookie.com/embed/CUvFeyGxaaU?" + ytParams.toString();
 
   const viewport = document.getElementById("viewport");
   const stage = document.getElementById("stage");
@@ -402,6 +560,123 @@
 
   const STAR = '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#FFD700" d="M12 1.15 14.1 9.9 22.85 12 14.1 14.1 12 22.85 9.9 14.1 1.15 12 9.9 9.9Z"/></svg>';
   const guide = document.getElementById("guide");
+  const forehead = document.getElementById("forehead");
+  const squint = document.getElementById("squint");
+  const say = document.getElementById("say");
+  const mini = document.getElementById("mini");
+  let embedCtrl = null;
+  let embedReady = false;
+  let pendingPlay = false;
+  let playing = false;
+  let heard = false;
+  let trackEnded = false;
+  let overlayTouch = false;
+
+  function isOverlayTarget(target) {
+    return !!(target && target.closest && target.closest(".forehead, .squint"));
+  }
+
+  function touchHitsOverlay(e) {
+    if (isOverlayTarget(e.target)) return true;
+    const t = e.changedTouches && e.changedTouches[0];
+    if (!t) return false;
+    const el = document.elementFromPoint(t.clientX, t.clientY);
+    return isOverlayTarget(el);
+  }
+
+  function syncMini() {
+    mini.classList.toggle("is-paused", !playing);
+    mini.setAttribute("aria-label", playing ? "pause song" : "play song");
+  }
+
+  function markHeard() {
+    if (heard) {
+      syncMini();
+      return;
+    }
+    heard = true;
+    squint.classList.add("is-on");
+    syncMini();
+    if (say.matches(":focus")) mini.focus();
+  }
+
+  function placeOverlays() {
+    if (!stage.classList.contains("is-ready")) return;
+    const s = scale;
+    const fl = x + FOREHEAD.x * imgW * s;
+    const ft = y + FOREHEAD.y * imgH * s;
+    const fw = FOREHEAD.w * imgW * s;
+    const fh = FOREHEAD.h * imgH * s;
+    const vw = viewport.clientWidth;
+    const vh = viewport.clientHeight;
+    forehead.style.left = fl + "px";
+    forehead.style.top = ft + "px";
+    forehead.style.width = fw + "px";
+    forehead.style.height = fh + "px";
+    const onForehead = fl < vw && ft < vh && fl + fw > 0 && ft + fh > 0;
+    forehead.classList.toggle("is-away", !onForehead);
+    forehead.classList.add("is-placed");
+    const frame = forehead.querySelector("iframe");
+    if (frame && !frame.getAttribute("src") && fw >= 100 && fh >= 56) {
+      frame.setAttribute("src", FOREHEAD_SRC);
+    }
+    const mx = x + MOUTH_X * imgW * s;
+    const my = y + MOUTH_Y * imgH * s;
+    squint.style.left = mx + "px";
+    squint.style.top = my + "px";
+    squint.style.transform = "scale(" + s + ")";
+    const onMouth = mx > -12 && my > -12 && mx < vw + 12 && my < vh + 12;
+    squint.classList.toggle("is-away", !onMouth);
+    squint.classList.add("is-placed");
+  }
+
+  window.onSpotifyIframeApiReady = (IFrameAPI) => {
+    const host = document.getElementById("spotify");
+    if (!host) return;
+    IFrameAPI.createController(host, {
+      width: 300,
+      height: 152,
+      uri: TRACK_URI,
+    }, (controller) => {
+      embedCtrl = controller;
+      controller.addListener("ready", () => {
+        embedReady = true;
+        if (pendingPlay) controller.play();
+      });
+      controller.addListener("playback_started", () => {
+        playing = true;
+        trackEnded = false;
+        markHeard();
+      });
+      controller.addListener("playback_update", (e) => {
+        const d = e && e.data ? e.data : {};
+        if (d.isPaused === false) {
+          playing = true;
+          trackEnded = false;
+          markHeard();
+        } else if (d.isPaused === true) {
+          playing = false;
+          if (d.duration && d.position >= d.duration - 750) trackEnded = true;
+          syncMini();
+        }
+      });
+    });
+  };
+
+  say.addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    pendingPlay = true;
+    if (embedCtrl) embedCtrl.play();
+  });
+  mini.addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!embedCtrl) return;
+    if (playing) embedCtrl.pause();
+    else if (trackEnded && embedCtrl.restart) embedCtrl.restart();
+    else embedCtrl.play();
+  });
   const guideGlow = document.createElement("div");
   guideGlow.className = "guide-glow";
   const guideDots = [0, 1, 2, 3].map((i) => {
@@ -555,6 +830,7 @@
   function apply() {
     stage.style.transform = "translate3d(" + x + "px," + y + "px,0) scale(" + scale + ")";
     updateGuide();
+    placeOverlays();
   }
 
   function syncStarSize() {
@@ -711,6 +987,11 @@
 
   function onTouchStart(e) {
     if (dialog.open) return;
+    if (touchHitsOverlay(e)) {
+      overlayTouch = true;
+      return;
+    }
+    overlayTouch = false;
     if (e.cancelable) e.preventDefault();
     keyboardNav = false;
     document.documentElement.classList.remove("keyboard");
@@ -738,6 +1019,7 @@
   }
 
   function onTouchMove(e) {
+    if (overlayTouch && !touches.size) return;
     if (!touches.size || dialog.open) return;
     if (e.cancelable) e.preventDefault();
     for (const t of e.changedTouches) {
@@ -768,6 +1050,10 @@
   }
 
   function onTouchEnd(e, cancelled) {
+    if (overlayTouch && touches.size === 0) {
+      overlayTouch = false;
+      return;
+    }
     for (const t of e.changedTouches) touches.delete(t.identifier);
     if (e.cancelable) e.preventDefault();
     if (touches.size >= 2) {
@@ -801,7 +1087,7 @@
   viewport.addEventListener("touchend", (e) => onTouchEnd(e, false), { passive: false, capture: true });
   viewport.addEventListener("touchcancel", (e) => onTouchEnd(e, true), { passive: false, capture: true });
   document.addEventListener("touchmove", (e) => {
-    if (dialog.open) return;
+    if (dialog.open || overlayTouch || isOverlayTarget(e.target)) return;
     if (e.cancelable) e.preventDefault();
   }, { passive: false, capture: true });
   ["gesturestart", "gesturechange", "gestureend"].forEach((type) => {
@@ -810,6 +1096,7 @@
 
   viewport.addEventListener("pointerdown", (e) => {
     if (e.pointerType !== "mouse" || e.button !== 0 || dialog.open) return;
+    if (isOverlayTarget(e.target)) return;
     if (performance.now() - lastTouchAt < 700) return;
     keyboardNav = false;
     document.documentElement.classList.remove("keyboard");
@@ -862,7 +1149,7 @@
   viewport.addEventListener("pointerup", endMouse);
   viewport.addEventListener("pointercancel", endMouse);
   viewport.addEventListener("wheel", (e) => {
-    if (dialog.open) return;
+    if (dialog.open || isOverlayTarget(e.target)) return;
     e.preventDefault();
     stopGlide();
     pinnedToFace = false;
@@ -1113,6 +1400,10 @@
   onResize();
   load();
   scheduleMidnight();
+  const spotifyApi = document.createElement("script");
+  spotifyApi.src = "https://open.spotify.com/embed/iframe-api/v1";
+  spotifyApi.async = true;
+  document.body.appendChild(spotifyApi);
 })();
 </script>
 </body>
