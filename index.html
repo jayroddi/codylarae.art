@@ -260,6 +260,24 @@
     overflow: visible;
     pointer-events: none;
   }
+  .tooth { overflow: hidden; }
+  .tooth .spark {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: sparkle 1.7s ease-in-out infinite;
+  }
+  .tooth .spark-b { animation-delay: -0.55s; }
+  .tooth .spark-c { animation-delay: -1.1s; }
+  .tooth .sweep { animation: tooth-sweep 2.5s ease-in-out infinite; }
+  @keyframes sparkle {
+    0%, 100% { opacity: 0.15; }
+    45% { opacity: 1; }
+  }
+  @keyframes tooth-sweep {
+    0% { transform: translateX(-18px); opacity: 0; }
+    18% { opacity: 0.72; }
+    100% { transform: translateX(40px); opacity: 0; }
+  }
   .tooth.is-on {
     filter:
       drop-shadow(0 0 3px rgba(255, 246, 194, 0.95))
@@ -420,7 +438,11 @@
     .star.is-today svg,
     .guide-dot,
     .guide-glow,
-    .tooth.is-on svg { animation: none; }
+    .tooth.is-on svg,
+    .tooth .spark,
+    .tooth .sweep { animation: none; }
+    .tooth .spark { opacity: 0.95; }
+    .tooth .sweep { opacity: 0; }
     .star.is-today svg { opacity: 1; transform: none; }
     .guide-dot {
       opacity: 0.8;
@@ -451,17 +473,34 @@
     </svg>
   </button>
   <button id="tooth" class="mark tooth" type="button" aria-pressed="false" aria-label="Play Lithonia">
-    <svg viewBox="0 0 42 34" aria-hidden="true">
+    <svg viewBox="0 0 42 52" aria-hidden="true">
       <defs>
-        <linearGradient id="tooth-gold" x1="0.15" y1="0" x2="0.85" y2="1">
-          <stop offset="0" stop-color="#fff8d2"/>
-          <stop offset="0.32" stop-color="#ffe14a"/>
-          <stop offset="0.68" stop-color="#e6ad00"/>
-          <stop offset="1" stop-color="#a56b08"/>
+        <linearGradient id="tooth-gold" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#fff8d0"/>
+          <stop offset="0.18" stop-color="#ffe56a"/>
+          <stop offset="0.46" stop-color="#f0b400"/>
+          <stop offset="0.74" stop-color="#c8880a"/>
+          <stop offset="1" stop-color="#7a4e06"/>
         </linearGradient>
+        <linearGradient id="tooth-edge" x1="1" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#fff" stop-opacity="0.55"/>
+          <stop offset="1" stop-color="#fff" stop-opacity="0"/>
+        </linearGradient>
+        <clipPath id="tooth-clip">
+          <rect x="1.2" y="1.2" width="39.6" height="49.6" rx="4.5"/>
+        </clipPath>
       </defs>
-      <path d="M5 2.5 H37 Q40.5 2.5 40.5 7.5 V17 Q40.5 29 29.5 31.5 Q21 33.5 12.5 31.5 Q1.5 28.5 1.5 17 V7.5 Q1.5 2.5 5 2.5 Z" fill="url(#tooth-gold)" stroke="#8a6410" stroke-width="1.2"/>
-      <path d="M9 8 Q16 4.5 27 8.5" fill="none" stroke="#fffef4" stroke-width="2.6" stroke-linecap="round"/>
+      <rect x="1.2" y="1.2" width="39.6" height="49.6" rx="4.5" fill="url(#tooth-gold)" stroke="#6e4c0c" stroke-width="1"/>
+      <rect x="3" y="2.4" width="14" height="46" rx="3" fill="url(#tooth-edge)"/>
+      <ellipse cx="13" cy="11" rx="7" ry="4.2" fill="#fffef6" opacity="0.88"/>
+      <g clip-path="url(#tooth-clip)">
+        <g class="sweep">
+          <rect x="0" y="-4" width="9" height="62" fill="#fff" opacity="0.62" transform="skewX(-18)"/>
+        </g>
+      </g>
+      <path class="spark" d="M30 10 l1.3 3.2 3.2 1.3-3.2 1.3-1.3 3.2-1.3-3.2-3.2-1.3 3.2-1.3z" fill="#fff"/>
+      <path class="spark spark-b" d="M12 28 l0.8 2 2 0.8-2 0.8-0.8 2-0.8-2-2-0.8 2-0.8z" fill="#fff"/>
+      <path class="spark spark-c" d="M27 36 l0.7 1.7 1.7 0.7-1.7 0.7-0.7 1.7-0.7-1.7-1.7-0.7 1.7-0.7z" fill="#fffef2"/>
     </svg>
   </button>
   <div id="guide" class="guide" hidden aria-hidden="true"></div>
@@ -490,7 +529,7 @@
   const FACE_X = 0.46;
   const FACE_Y = 0.44;
   const OVERSCAN = 1.5;
-  const TOOTH = { x: 1352, y: 1064, w: 40, h: 30 };
+  const TOOTH = { x: 1236, y: 1074, w: 42, h: 52 };
   const BOLT = { x: 1240, y: 590, w: 70, h: 110 };
   const TRACK_URI = "spotify:track:3uC4r2daXertBxxc8BpbbN";
   const VIDEO_ID = "CUvFeyGxaaU";
